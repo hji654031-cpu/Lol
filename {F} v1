@@ -11,7 +11,7 @@ local FlyCorner = Instance.new("UICorner")
 local SpeedInput = Instance.new("TextBox")
 local SpeedCorner = Instance.new("UICorner")
 
-ScreenGui.Name = "F_v1_Mobile_Fixed"
+ScreenGui.Name = "F_v1_Mobile_Fixed_Final"
 ScreenGui.Parent = game:GetService("CoreGui") or game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
 ScreenGui.ResetOnSpawn = false
 
@@ -128,11 +128,15 @@ Title.MouseButton1Click:Connect(function()
     MainFrame.Size = minimized and UDim2.new(0, 140, 0, 30) or UDim2.new(0, 140, 0, 115)
 end)
 
--- НАСТОЯЩАЯ ИСПРАВЛЕННАЯ ЛОГИКА ПОЛЕТА ДЛЯ СЕНСОРА
+-- ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ МОБИЛЬНАЯ ЛОГИКА (ЧЕРЕЗ ИГРОВОЙ ДЖОЙСТИК)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
+
+-- Получение модуля управления джойстиком
+local PlayerModule = require(LocalPlayer.PlayerScripts:WaitForChild("PlayerModule"))
+local Controls = PlayerModule:GetControls()
 
 local flying = false
 local speed = 40
@@ -157,40 +161,34 @@ local function Fly()
     
     bv.Parent = root
     bg.Parent = root
-    humanoid.PlatformStand = true
+    
+    -- Вместо багованного PlatformStand используем режим физики
+    humanoid:ChangeState(Enum.HumanoidStateType.Physics)
     
     local render_conn
     render_conn = RunService.RenderStepped:Connect(function()
         if not flying or not root.Parent then
             bv:Destroy()
             bg:Destroy()
-            humanoid.PlatformStand = false
+            humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
             render_conn:Disconnect()
             return
         end
         
         bg.cframe = Camera.CFrame
         
-        -- Точный расчет направления относительно движения пальца
-        if humanoid.MoveDirection.Magnitude > 0 then
-            -- Переводим плоский вектор джойстика в 3D направление камеры
-            local direction = Camera.CFrame:VectorToWorldSpace(Vector3.new(
-                humanoid.MoveDirection.X, 
-                0, 
-                humanoid.MoveDirection.Z
-            ))
+        -- Считываем «чистый» вектор смещения виртуального джойстика
+        local moveVector = Controls:GetMoveVector()
+        
+        if moveVector.Magnitude > 0 then
+            -- Вычисляем правильный ход движения вперед/назад и влево/вправо на основе камеры
+            local moveX = Camera.CFrame.RightVector * moveVector.X
+            local moveZ = Camera.CFrame.LookVector * -moveVector.Z
             
-            -- Проектируем движение прямо по направлению взгляда
-            local lookVectors = Camera.CFrame.LookVector
-            local finalVector = Vector3.new(0,0,0)
-            
-            -- Вычисляем правильный ход движения вперед/назад и влево/вправо без инверсий
-            local moveX = Camera.CFrame.RightVector * (humanoid.MoveDirection.X * 1.5)
-            local moveZ = Camera.CFrame.LookVector * (-humanoid.MoveDirection.Z * 1.5)
-            
-            finalVector = (moveX + moveZ).Unit
+            local finalVector = (moveX + moveZ).Unit
             bv.velocity = finalVector * speed
         else
+            -- Стабильное зависание в воздухе при отпущенном стике
             bv.velocity = Vector3.new(0, 0, 0)
         end
     end)
