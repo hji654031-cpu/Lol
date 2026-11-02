@@ -1,0 +1,209 @@
+-- Создание интерфейса с улучшенным дизайном
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local UIGradient = Instance.new("UIGradient")
+local UICorner = Instance.new("UICorner")
+local UIStroke = Instance.new("UIStroke")
+local Title = Instance.new("TextButton")
+local ContentFrame = Instance.new("Frame")
+local FlyButton = Instance.new("TextButton")
+local FlyCorner = Instance.new("UICorner")
+local SpeedInput = Instance.new("TextBox")
+local SpeedCorner = Instance.new("UICorner")
+
+ScreenGui.Name = "F_v1_Mobile_Fixed"
+ScreenGui.Parent = game:GetService("CoreGui") or game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
+
+-- Главная панель (Стильный минимализм)
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+MainFrame.Position = UDim2.new(0.1, 0, 0.3, 0)
+MainFrame.Size = UDim2.new(0, 140, 0, 115)
+MainFrame.Active = true
+
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = MainFrame
+
+UIStroke.Color = Color3.fromRGB(115, 0, 200)
+UIStroke.Thickness = 1.5
+UIStroke.Parent = MainFrame
+
+UIGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 15, 20)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(45, 0, 75))
+}
+UIGradient.Rotation = 45
+UIGradient.Parent = MainFrame
+
+-- Название / Кнопка сворачивания
+Title.Name = "Title"
+Title.Parent = MainFrame
+Title.BackgroundTransparency = 1
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.Font = Enum.Font.GothamBold
+Title.Text = "{F} v1"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 14
+
+-- Контейнер элементов
+ContentFrame.Name = "ContentFrame"
+ContentFrame.Parent = MainFrame
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.Position = UDim2.new(0, 0, 0, 30)
+ContentFrame.Size = UDim2.new(1, 0, 1, -30)
+
+-- Кнопка Fly
+FlyButton.Name = "FlyButton"
+FlyButton.Parent = ContentFrame
+FlyButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+FlyButton.BackgroundTransparency = 0.93
+FlyButton.Position = UDim2.new(0.1, 0, 0.08, 0)
+FlyButton.Size = UDim2.new(0.8, 0, 0, 30)
+FlyButton.Font = Enum.Font.Gotham
+FlyButton.Text = "Fly: OFF"
+FlyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+FlyButton.TextSize = 13
+
+FlyCorner.CornerRadius = UDim.new(0, 5)
+FlyCorner.Parent = FlyButton
+
+-- Поле Speed
+SpeedInput.Name = "SpeedInput"
+SpeedInput.Parent = ContentFrame
+SpeedInput.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+SpeedInput.BackgroundTransparency = 0.93
+SpeedInput.Position = UDim2.new(0.1, 0, 0.55, 0)
+SpeedInput.Size = UDim2.new(0.8, 0, 0, 26)
+SpeedInput.Font = Enum.Font.Gotham
+SpeedInput.Text = "40"
+SpeedInput.PlaceholderText = "Speed"
+SpeedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpeedInput.TextSize = 12
+
+SpeedCorner.CornerRadius = UDim.new(0, 5)
+SpeedCorner.Parent = SpeedInput
+
+-- РАБОЧИЙ СКРИПТ ДЛЯ ПЕРЕТАСКИВАНИЯ НА ТЕЛЕФОНАХ (Touch Dragging)
+local UserInputService = game:GetService("UserInputService")
+local dragging, dragInput, dragStart, startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+MainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+MainFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        update(input)
+    end
+end)
+
+-- Сворачивание
+local minimized = false
+Title.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    ContentFrame.Visible = not minimized
+    MainFrame.Size = minimized and UDim2.new(0, 140, 0, 30) or UDim2.new(0, 140, 0, 115)
+end)
+
+-- НАСТОЯЩАЯ ИСПРАВЛЕННАЯ ЛОГИКА ПОЛЕТА ДЛЯ СЕНСОРА
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+local flying = false
+local speed = 40
+
+SpeedInput.FocusLost:Connect(function()
+    local num = tonumber(SpeedInput.Text)
+    if num then speed = num else SpeedInput.Text = tostring(speed) end
+end)
+
+local function Fly()
+    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local root = character:WaitForChild("HumanoidRootPart")
+    local humanoid = character:WaitForChild("Humanoid")
+    
+    local bv = Instance.new("BodyVelocity")
+    local bg = Instance.new("BodyGyro")
+    
+    bv.maxForce = Vector3.new(9e9, 9e9, 9e9)
+    bv.velocity = Vector3.new(0, 0, 0)
+    bg.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+    bg.cframe = root.CFrame
+    
+    bv.Parent = root
+    bg.Parent = root
+    humanoid.PlatformStand = true
+    
+    local render_conn
+    render_conn = RunService.RenderStepped:Connect(function()
+        if not flying or not root.Parent then
+            bv:Destroy()
+            bg:Destroy()
+            humanoid.PlatformStand = false
+            render_conn:Disconnect()
+            return
+        end
+        
+        bg.cframe = Camera.CFrame
+        
+        -- Точный расчет направления относительно движения пальца
+        if humanoid.MoveDirection.Magnitude > 0 then
+            -- Переводим плоский вектор джойстика в 3D направление камеры
+            local direction = Camera.CFrame:VectorToWorldSpace(Vector3.new(
+                humanoid.MoveDirection.X, 
+                0, 
+                humanoid.MoveDirection.Z
+            ))
+            
+            -- Проектируем движение прямо по направлению взгляда
+            local lookVectors = Camera.CFrame.LookVector
+            local finalVector = Vector3.new(0,0,0)
+            
+            -- Вычисляем правильный ход движения вперед/назад и влево/вправо без инверсий
+            local moveX = Camera.CFrame.RightVector * (humanoid.MoveDirection.X * 1.5)
+            local moveZ = Camera.CFrame.LookVector * (-humanoid.MoveDirection.Z * 1.5)
+            
+            finalVector = (moveX + moveZ).Unit
+            bv.velocity = finalVector * speed
+        else
+            bv.velocity = Vector3.new(0, 0, 0)
+        end
+    end)
+end
+
+FlyButton.MouseButton1Click:Connect(function()
+    flying = not flying
+    if flying then
+        FlyButton.Text = "Fly: ON"
+        FlyButton.TextColor3 = Color3.fromRGB(160, 32, 240)
+        Fly()
+    else
+        FlyButton.Text = "Fly: OFF"
+        FlyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    end
+end)
