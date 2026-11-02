@@ -85,13 +85,19 @@ SpeedInput.TextSize = 12
 SpeedCorner.CornerRadius = UDim.new(0, 5)
 SpeedCorner.Parent = SpeedInput
 
--- РАБОЧИЙ СКРИПТ ДЛЯ ПЕРЕТАСКИВАНИЯ НА ТЕЛЕФОНАХ (Touch Dragging)
+-- ГЛОБАЛЬНОЕ ИСПРАВЛЕННОЕ ПЕРЕТАСКИВАНИЯ ДЛЯ МОБИЛЬНЫХ ЭКРАНОВ
 local UserInputService = game:GetService("UserInputService")
-local dragging, dragInput, dragStart, startPos
+local dragging = false
+local dragInput, dragStart, startPos
 
 local function update(input)
     local delta = input.Position - dragStart
-    MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    MainFrame.Position = UDim2.new(
+        startPos.X.Scale, 
+        startPos.X.Offset + delta.X, 
+        startPos.Y.Scale, 
+        startPos.Y.Offset + delta.Y
+    )
 end
 
 MainFrame.InputBegan:Connect(function(input)
@@ -99,24 +105,24 @@ MainFrame.InputBegan:Connect(function(input)
         dragging = true
         dragStart = input.Position
         startPos = MainFrame.Position
-        
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
     end
 end)
 
-MainFrame.InputChanged:Connect(function(input)
+UserInputService.InputChanged:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
         dragInput = input
     end
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
+    if dragging and input == dragInput then
         update(input)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
     end
 end)
 
@@ -128,7 +134,7 @@ Title.MouseButton1Click:Connect(function()
     MainFrame.Size = minimized and UDim2.new(0, 140, 0, 30) or UDim2.new(0, 140, 0, 115)
 end)
 
--- ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ МОБИЛЬНАЯ ЛОГИКА (ЧЕРЕЗ ИГРОВОЙ ДЖОЙСТИК)
+-- МОБИЛЬНАЯ ЛОГИКА ПОЛЕТА (ЧЕРЕЗ ИГРОВОЙ ДЖОЙСТИК)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
@@ -162,7 +168,7 @@ local function Fly()
     bv.Parent = root
     bg.Parent = root
     
-    -- Вместо багованного PlatformStand используем режим физики
+    -- Перевод персонажа в режим физики во избежание багов
     humanoid:ChangeState(Enum.HumanoidStateType.Physics)
     
     local render_conn
@@ -177,7 +183,7 @@ local function Fly()
         
         bg.cframe = Camera.CFrame
         
-        -- Считываем «чистый» вектор смещения виртуального джойстика
+        -- Считываем вектор смещения виртуального джойстика
         local moveVector = Controls:GetMoveVector()
         
         if moveVector.Magnitude > 0 then
